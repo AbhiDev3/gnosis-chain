@@ -1,0 +1,96 @@
+version: "3.9"
+
+services:
+
+  execution:
+    stop_grace_period: 1m
+    container_name: execution-client
+    restart: unless-stopped
+    image: ${EC_IMAGE_VERSION}
+    networks:
+      - gnosis
+    volumes:
+      - ${EC_DATA_DIR}:/nethermind/data
+      - ${KEYSTORE_DIR}:/keystore
+    ports:
+      - "30303:30303/tcp"
+      - "30303:30303/udp"
+      - "8008:8008/tcp"
+    expose:
+      - 8545
+    command:
+      - --config=${NETWORK}
+      - --datadir=/nethermind/data
+      - --log=${NETHERMIND_LOG_LEVEL}
+      - --Metrics.Enabled=${EC_METRICS_ENABLED}
+      - --Metrics.NodeName=${EC_NODENAME}
+      - --Metrics.PushGatewayUrl=${NETHERMIND_METRICS_PUSH_GATEWAY_URL}
+      - --Metrics.ExposePort=8008
+      #- --Sync.SnapSync=${EC_SNAP_SYNC_ENABLED}
+      - --Sync.SnapSync=false
+      - --Init.WebSocketsEnabled=true
+      - --JsonRpc.Enabled=true
+      - --JsonRpc.Host=0.0.0.0
+      - --JsonRpc.Port=8545
+      - --JsonRpc.EnabledModules=${EC_ENABLED_MODULES}
+      - --JsonRpc.JwtSecretFile=/keystore/jwtsecret
+      - --Network.DiscoveryPort=30303
+      - --HealthChecks.Enabled=${NETHERMIND_HEALTH_CHECKS_ENABLED}
+      - --Pruning.CacheMb=${NETHERMIND_PRUNING_CACHEMB}
+      - --Discovery.Bootnodes=${EC_BOOTNODES}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "10"
+
+
+
+  consensus:
+    stop_grace_period: 1m
+    container_name: consensus-client
+    restart: unless-stopped
+    image: ${CC_IMAGE_VERSION}
+    networks:
+      - gnosis
+    volumes:
+      - ${CC_DATA_DIR}:/var/lib/lighthouse
+      - ${KEYSTORE_DIR}:/keystore
+    ports:
+      - "9000:9000/tcp"
+      - "9000:9000/udp"
+      - "5054:5054/tcp"
+    expose:
+      - 4000
+    command:
+      - lighthouse
+      - bn
+      - --disable-upnp
+      - --datadir=/var/lib/lighthouse
+      - --port=9000
+      - --http
+      - --http-address=0.0.0.0
+      - --http-port=4000
+      - --network=${NETWORK_CONSENSUS}
+      - --target-peers=${CC_PEER_COUNT}
+      - --eth1-endpoints=${EC_API_URL}
+      - --eth1-blocks-per-log-query=150
+      - --debug-level=${CC_LOG_LEVEL}
+      - --validator-monitor-auto
+      - --subscribe-all-subnets
+      - --import-all-attestations
+      - --metrics
+      - --metrics-port=5054
+      - --metrics-address=0.0.0.0
+      - --execution-endpoint=${EC_API_URL}
+      - --execution-jwt=/keystore/jwtsecret
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "10"
+
+networks:
+  gnosis:
+    name: gnosis_network
+
